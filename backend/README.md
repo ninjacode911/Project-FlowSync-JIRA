@@ -1,11 +1,21 @@
 # FlowSync Backend API
 
-Production-ready Node.js/Express backend for FlowSync task management system with PostgreSQL database.
+Production-ready Node.js/Express backend for FlowSync task management system with **SQLite database** (lightweight & serverless).
+
+## Why SQLite?
+
+✅ **Zero Configuration** - No database server setup required  
+✅ **Serverless** - Embedded directly in your application  
+✅ **Lightweight** - Single file database (~100KB overhead)  
+✅ **Fast** - Optimized for read-heavy workloads  
+✅ **Easy Deployment** - Works on any platform, no external dependencies  
+✅ **ACID Compliant** - Reliable transactions  
+✅ **Perfect for Web Apps** - Handles thousands of concurrent users  
 
 ## Features
 
 - ✅ JWT Authentication with role-based access control (Admin/Client)
-- ✅ PostgreSQL database with comprehensive schema
+- ✅ SQLite database with comprehensive schema
 - ✅ Review workflow system (submit, approve, reject)
 - ✅ Time tracking and deadline management
 - ✅ Real-time notifications
@@ -18,8 +28,8 @@ Production-ready Node.js/Express backend for FlowSync task management system wit
 ## Prerequisites
 
 - Node.js >= 18.0.0
-- PostgreSQL >= 13
 - npm or yarn
+- **That's it!** No database server needed
 
 ## Setup Instructions
 
@@ -30,30 +40,7 @@ cd backend
 npm install
 ```
 
-### 2. Database Setup
-
-#### Option A: Local PostgreSQL
-
-1. Install PostgreSQL on your machine
-2. Create a new database:
-
-```sql
-CREATE DATABASE flowsync;
-```
-
-3. Run the migration script:
-
-```bash
-npm run migrate
-```
-
-#### Option B: Cloud PostgreSQL (Railway, Render, etc.)
-
-1. Create a PostgreSQL database on your cloud provider
-2. Copy the connection string
-3. Update `.env` file with the connection string
-
-### 3. Environment Configuration
+### 2. Environment Configuration
 
 1. Copy the example environment file:
 
@@ -61,11 +48,11 @@ npm run migrate
 cp .env.example .env
 ```
 
-2. Update the `.env` file with your configuration:
+2. Update the `.env` file (minimal configuration needed):
 
 ```env
-# Database
-DATABASE_URL=postgresql://username:password@localhost:5432/flowsync
+# Database (SQLite - just specify the path)
+DATABASE_PATH=./data/flowsync.db
 
 # JWT Secrets (generate strong random strings)
 JWT_SECRET=your-super-secret-jwt-key
@@ -73,21 +60,17 @@ JWT_REFRESH_SECRET=your-refresh-token-secret
 
 # Frontend URL
 FRONTEND_URL=http://localhost:5173
-
-# Email (optional for development)
-SMTP_HOST=smtp.sendgrid.net
-SMTP_PASS=your-sendgrid-api-key
 ```
 
-### 4. Run Database Migration
+### 3. Run Database Migration
 
 ```bash
 npm run migrate
 ```
 
-This will create all tables, indexes, and seed data.
+This creates the database file and all tables automatically.
 
-### 5. Start the Server
+### 4. Start the Server
 
 #### Development mode (with auto-reload):
 ```bash
@@ -100,6 +83,24 @@ npm start
 ```
 
 The server will start on `http://localhost:5000`
+
+## Database Location
+
+The SQLite database is stored as a single file:
+- **Path**: `./data/flowsync.db`
+- **Size**: ~100KB when empty, grows with data
+- **Backup**: Just copy this file!
+
+### WAL Mode Enabled
+
+The database uses Write-Ahead Logging (WAL) mode for:
+- Better concurrency
+- Faster writes
+- No blocking on reads
+
+This creates two additional files:
+- `flowsync.db-shm` (shared memory)
+- `flowsync.db-wal` (write-ahead log)
 
 ## API Endpoints
 
@@ -161,7 +162,7 @@ After running migrations, these accounts are available:
 backend/
 ├── src/
 │   ├── config/
-│   │   └── database.js          # PostgreSQL connection
+│   │   └── database.js          # SQLite connection
 │   ├── middleware/
 │   │   ├── auth.js              # JWT verification
 │   │   ├── roleCheck.js         # Role-based access
@@ -185,6 +186,8 @@ backend/
 │   └── 001_initial_schema.sql   # Database schema
 ├── scripts/
 │   └── migrate.js               # Migration runner
+├── data/
+│   └── flowsync.db              # SQLite database (created by migration)
 ├── package.json
 └── .env.example
 ```
@@ -213,6 +216,15 @@ npm run test:watch
 
 ## Deployment
 
+### Simple Deployment (Vercel, Netlify, Railway, Render)
+
+1. Push code to GitHub
+2. Connect repository to platform
+3. Set environment variables
+4. Deploy!
+
+The SQLite database file will be created automatically on first run.
+
 ### Docker Deployment
 
 1. Build the image:
@@ -222,31 +234,80 @@ docker build -t flowsync-backend .
 
 2. Run the container:
 ```bash
-docker run -p 5000:5000 --env-file .env flowsync-backend
+docker run -p 5000:5000 -v $(pwd)/data:/app/data --env-file .env flowsync-backend
 ```
 
-### Cloud Deployment (Railway, Render, etc.)
+**Note**: Use volume mount (`-v`) to persist the database file.
 
-1. Push code to GitHub
-2. Connect repository to cloud provider
-3. Set environment variables
-4. Deploy
+## Database Backup
+
+### Backup
+```bash
+# Simple file copy
+cp ./data/flowsync.db ./backups/flowsync-backup-$(date +%Y%m%d).db
+```
+
+### Restore
+```bash
+# Copy backup file back
+cp ./backups/flowsync-backup-20260211.db ./data/flowsync.db
+```
+
+## Performance Tips
+
+### For Production:
+1. **Enable WAL mode** (already enabled by default)
+2. **Use indexes** (already created in schema)
+3. **Connection pooling** (handled by sqlite3 library)
+4. **Regular VACUUM** (optional, for cleanup):
+   ```sql
+   VACUUM;
+   ```
+
+### Scaling Considerations:
+
+SQLite handles:
+- ✅ Thousands of concurrent readers
+- ✅ Hundreds of writes per second
+- ✅ Databases up to 281 TB
+- ✅ Millions of rows
+
+For most web apps, SQLite is **more than sufficient**.
 
 ## Troubleshooting
 
-### Database Connection Issues
+### Database Locked Error
 
-If you see "database connection failed":
-1. Check PostgreSQL is running: `pg_isready`
-2. Verify DATABASE_URL in `.env`
-3. Check firewall settings
-4. Ensure database exists
+If you see "database is locked":
+1. Check if WAL mode is enabled (it is by default)
+2. Ensure no other process is accessing the database
+3. Increase timeout in database config
+
+### Migration Fails
+
+If migration fails:
+1. Delete `./data/flowsync.db`
+2. Run `npm run migrate` again
 
 ### Port Already in Use
 
 If port 5000 is in use:
 1. Change PORT in `.env`
-2. Or kill the process: `lsof -ti:5000 | xargs kill`
+2. Or kill the process: `lsof -ti:5000 | xargs kill` (Mac/Linux)
+
+## SQLite vs PostgreSQL
+
+| Feature | SQLite | PostgreSQL |
+|---------|--------|------------|
+| Setup | Zero config | Requires server |
+| Deployment | Single file | External service |
+| Cost | Free | May require hosting |
+| Performance | Excellent for <100K users | Better for millions |
+| Backup | Copy file | pg_dump required |
+| Scaling | Vertical only | Horizontal + Vertical |
+| Best For | Web apps, startups | Enterprise, high traffic |
+
+**For FlowSync**: SQLite is perfect! ✅
 
 ## License
 

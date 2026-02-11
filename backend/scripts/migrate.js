@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const { pool } = require('../src/config/database');
+const { db, close } = require('../src/config/database');
 
 const runMigration = async () => {
-    console.log('🚀 Starting database migration...\n');
+    console.log('🚀 Starting SQLite database migration...\n');
 
     try {
         // Read the migration file
@@ -11,10 +11,20 @@ const runMigration = async () => {
         const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
         console.log('📄 Reading migration file: 001_initial_schema.sql');
-
-        // Execute the migration
         console.log('⚙️  Executing migration...\n');
-        await pool.query(migrationSQL);
+
+        // Execute the entire SQL file at once
+        // SQLite's exec() method can handle multiple statements
+        await new Promise((resolve, reject) => {
+            db.exec(migrationSQL, (err) => {
+                if (err) {
+                    console.error('❌ Migration error:', err.message);
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
 
         console.log('✅ Migration completed successfully!\n');
         console.log('📊 Created tables:');
@@ -29,15 +39,19 @@ const runMigration = async () => {
         console.log('   - activity_log');
         console.log('   - notifications');
 
+        console.log('\n📑 Created indexes (11 total)');
+        console.log('📌 Created triggers (4 auto-update triggers)');
+
         console.log('\n🌱 Seed data created:');
         console.log('   - Admin user: admin@flowsync.com (password: admin123)');
         console.log('   - Client users: john@client.com, sarah@client.com (password: client123)');
         console.log('   - Default project: FlowSync Core (FLOW)');
 
-        console.log('\n⚠️  IMPORTANT: Change default passwords in production!');
+        console.log('\n💾 Database file: ./data/flowsync.db');
+        console.log('⚠️  IMPORTANT: Change default passwords in production!');
 
-        // Close the pool
-        await pool.end();
+        // Close the database
+        await close();
         console.log('\n✅ Database connection closed');
         process.exit(0);
 
@@ -45,7 +59,7 @@ const runMigration = async () => {
         console.error('\n❌ Migration failed:', error.message);
         console.error('\nFull error:', error);
 
-        await pool.end();
+        await close();
         process.exit(1);
     }
 };

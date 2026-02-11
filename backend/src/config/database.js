@@ -1,68 +1,107 @@
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
-// Create PostgreSQL connection pool
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    // Or use individual connection params if not using DATABASE_URL:
-    // host: process.env.DB_HOST,
-    // port: process.env.DB_PORT,
-    // database: process.env.DB_NAME,
-    // user: process.env.DB_USER,
-    // password: process.env.DB_PASSWORD,
+// Ensure data directory exists
+const dataDir = path.join(__dirname, '../../data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
 
-    // Connection pool settings
-    max: 20, // Maximum number of clients in the pool
-    idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-    connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection cannot be established
+// Database file path
+const dbPath = process.env.DATABASE_PATH || path.join(dataDir, 'flowsync.db');
+
+// Create database connection
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('❌ Error opening database:', err.message);
+        process.exit(1);
+    } else {
+        console.log('✅ Connected to SQLite database:', dbPath);
+    }
 });
 
-// Test connection
-pool.on('connect', () => {
-    console.log('✅ Database connected successfully');
-});
+// Enable foreign keys
+db.run('PRAGMA foreign_keys = ON');
 
-pool.on('error', (err) => {
-    console.error('❌ Unexpected database error:', err);
-    process.exit(-1);
-});
+// Enable WAL mode for better concurrency
+db.run('PRAGMA journal_mode = WAL');
 
-// Helper function to execute queries
-const query = async (text, params) => {
-    const start = Date.now();
+// Helper function to run queries with promises
+const query = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) {
+                console.error('Database query error:', err);
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+};
+
+// Helper function to run single query (INSERT, UPDATE, DELETE)
+const run = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.run(sql, params, function (err) {
+            if (err) {
+                console.error('Database run error:', err);
+                reject(err);
+            } else {
+                resolve({ lastID: this.lastID, changes: this.changes });
+            }
+        });
+    });
+};
+
+// Helper function to get single row
+const get = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => {
+            if (err) {
+                console.error('Database get error:', err);
+                reject(err);
+            } else {
+                resolve(row);
+            }
+        });
+    });
+};
+
+// Helper function for transactions
+const transaction = async (callback) => {
     try {
-        const res = await pool.query(text, params);
-        const duration = Date.now() - start;
-        console.log('Executed query', { text, duration, rows: res.rowCount });
-        return res;
+        await run('BEGIN TRANSACTION');
+        const result = await callback();
+        await run('COMMIT');
+        return result;
     } catch (error) {
-        console.error('Database query error:', error);
+        await run('ROLLBACK');
         throw error;
     }
 };
 
-// Helper function for transactions
-const getClient = async () => {
-    const client = await pool.connect();
-    const query = client.query.bind(client);
-    const release = client.release.bind(client);
-
-    // Set a timeout of 5 seconds for the transaction
-    const timeout = setTimeout(() => {
-        console.error('A client has been checked out for more than 5 seconds!');
-    }, 5000);
-
-    // Monkey patch the release method to clear timeout
-    client.release = () => {
-        clearTimeout(timeout);
-        return release();
-    };
-
-    return client;
+// Close database connection
+const close = () => {
+    return new Promise((resolve, reject) => {
+        db.close((err) => {
+            if (err) {
+                reject(err);
+            } else {
+                console.log('✅ Database connection closed');
+                resolve();
+            }
+        });
+    });
 };
 
 module.exports = {
-    pool,
+    db,
     query,
-    getClient,
+    run,
+    get,
+    transaction,
+    close,
 };

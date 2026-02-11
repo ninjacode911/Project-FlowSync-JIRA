@@ -9,3 +9,7 @@ uploads/
 coverage/
 .vscode/
 .idea/
+data/
+*.db
+*.db-shm
+*.db-wal

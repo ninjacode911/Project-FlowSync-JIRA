@@ -6,10 +6,10 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const { pool } = require('./config/database');
+const { query } = require('./config/database');
 
-// Import routes (will create these next)
-// const authRoutes = require('./routes/auth');
+// Import routes
+const authRoutes = require('./routes/auth');
 // const userRoutes = require('./routes/users');
 // const projectRoutes = require('./routes/projects');
 // const issueRoutes = require('./routes/issues');
@@ -62,11 +62,12 @@ app.use('/api/', limiter);
 // Health check
 app.get('/health', async (req, res) => {
     try {
-        await pool.query('SELECT 1');
+        await query('SELECT 1');
         res.json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
-            database: 'connected'
+            database: 'connected',
+            dbType: 'SQLite'
         });
     } catch (error) {
         res.status(503).json({
@@ -78,8 +79,8 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// API routes (uncomment as we create them)
-// app.use('/api/auth', authRoutes);
+// API routes
+app.use('/api/auth', authRoutes);
 // app.use('/api/users', userRoutes);
 // app.use('/api/projects', projectRoutes);
 // app.use('/api/issues', issueRoutes);
@@ -118,6 +119,7 @@ app.listen(PORT, () => {
     console.log(`
 ╔═══════════════════════════════════════╗
 ║   FlowSync Backend API Server         ║
+║   Database: SQLite (Lightweight)      ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}              ║
 ║   Port: ${PORT}                          ║
 ║   Frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}  ║
@@ -128,8 +130,9 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
-    pool.end(() => {
-        console.log('Database pool closed');
+    const { close } = require('./config/database');
+    close().then(() => {
+        console.log('Database connection closed');
         process.exit(0);
     });
 });
