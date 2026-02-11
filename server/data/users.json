@@ -1,0 +1,30 @@
+[
+    {
+        "id": "u1",
+        "name": "Alex Rivera",
+        "email": "alex@flowsync.com",
+        "avatarUrl": "https://picsum.photos/100/100?random=1",
+        "role": "admin"
+    },
+    {
+        "id": "u2",
+        "name": "Sarah Chen",
+        "email": "sarah@flowsync.com",
+        "avatarUrl": "https://picsum.photos/100/100?random=2",
+        "role": "member"
+    },
+    {
+        "id": "u3",
+        "name": "Mike Johnson",
+        "email": "mike@flowsync.com",
+        "avatarUrl": "https://picsum.photos/100/100?random=3",
+        "role": "member"
+    },
+    {
+        "id": "u4",
+        "name": "Emily Davis",
+        "email": "emily@flowsync.com",
+        "avatarUrl": "https://picsum.photos/100/100?random=4",
+        "role": "member"
+    }
+]

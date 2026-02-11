@@ -1,0 +1,10 @@
+[
+    {
+        "id": "p1",
+        "key": "FLOW",
+        "name": "FlowSync Core",
+        "description": "Main application development",
+        "leadId": "u1",
+        "avatarUrl": "https://picsum.photos/200/200?random=5"
+    }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "s1",
+    "name": "Sprint 23",
+    "startDate": "2023-10-01",
+    "endDate": "2023-10-14",
+    "goal": "Implement core board features",
+    "isActive": false,
+    "isCompleted": true
+  },
+  {
+    "id": "s2",
+    "name": "Sprint 24",
+    "startDate": "2023-10-15",
+    "endDate": "2023-10-29",
+    "goal": "Backlog refinement and polish",
+    "isActive": false,
+    "isCompleted": true
+  },
+  {
+    "id": "1f46e0d0-7d1e-49ef-b9d8-d26b92be261a",
+    "name": "test 1",
+    "goal": "just testing",
+    "startDate": "2026-02-14",
+    "endDate": "2026-02-28",
+    "isActive": false,
+    "isCompleted": true,
+    "createdAt": "2026-02-11T10:03:18.639Z"
+  },
+  {
+    "id": "e7779247-2c68-441d-904f-489a471dd8ac",
+    "name": "H1",
+    "goal": "test",
+    "startDate": "2026-02-11",
+    "endDate": "2026-02-28",
+    "isActive": false,
+    "isCompleted": true,
+    "createdAt": "2026-02-11T10:11:01.841Z"
+  },
+  {
+    "id": "7f7cc818-1bfb-47e6-8125-49406287ed45",
+    "name": "m ,n ",
+    "goal": ". . ",
+    "startDate": "2026-02-11",
+    "endDate": "2026-02-28",
+    "isActive": false,
+    "isCompleted": true,
+    "createdAt": "2026-02-11T10:26:37.272Z"
+  }
+]
