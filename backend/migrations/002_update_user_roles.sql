@@ -2,9 +2,12 @@
 -- Migration 002: Update user roles to ADMIN / PROJECT_MANAGER / MEMBER / VIEWER
 -- - Expands the allowed roles
 -- - Migrates existing 'admin' -> 'ADMIN' and 'client' -> 'MEMBER'
+-- NOTE: Foreign keys are temporarily disabled to allow table rebuild.
 -- ============================================
 
 BEGIN TRANSACTION;
+
+PRAGMA foreign_keys = OFF;
 
 CREATE TABLE IF NOT EXISTS users_tmp (
   id TEXT PRIMARY KEY,
@@ -38,6 +41,8 @@ FROM users;
 DROP TABLE users;
 
 ALTER TABLE users_tmp RENAME TO users;
+
+PRAGMA foreign_keys = ON;
 
 COMMIT;
 

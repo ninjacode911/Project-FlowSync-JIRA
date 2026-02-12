@@ -15,6 +15,7 @@ const projectRoutes = require('./routes/projects');
 const issueRoutes = require('./routes/issues');
 const sprintRoutes = require('./routes/sprints');
 const commentRoutes = require('./routes/comments');
+const adminRoutes = require('./routes/admin');
 // const reviewRoutes = require('./routes/reviews');
 // const notificationRoutes = require('./routes/notifications');
 
@@ -106,6 +107,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/issues', issueRoutes);
 app.use('/api/sprints', sprintRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/admin', adminRoutes);
 // app.use('/api/reviews', reviewRoutes);
 // app.use('/api/notifications', notificationRoutes);
 

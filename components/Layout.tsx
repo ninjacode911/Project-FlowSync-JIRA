@@ -107,6 +107,19 @@ const Layout: React.FC = () => {
               <SidebarLink to="/board" icon={<Trello size={20} />} label="Board" />
               <SidebarLink to="/backlog" icon={<ListTodo size={20} />} label="Backlog" />
               <SidebarLink to="/settings" icon={<Settings size={20} />} label="Settings" />
+
+              {user?.role === 'ADMIN' && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Admin
+                  </p>
+                  <SidebarLink
+                    to="/admin/dashboard"
+                    icon={<LayoutDashboard size={18} />}
+                    label="Admin Panel"
+                  />
+                </div>
+              )}
             </nav>
           </div>
 
