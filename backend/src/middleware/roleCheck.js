@@ -4,7 +4,7 @@
  */
 
 /**
- * Check if user has admin role
+ * Check if user has admin role (workspace admin)
  */
 const requireAdmin = (req, res, next) => {
     if (!req.user) {
@@ -13,7 +13,7 @@ const requireAdmin = (req, res, next) => {
         });
     }
 
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'ADMIN') {
         return res.status(403).json({
             error: 'Access denied. Admin privileges required.'
         });
@@ -23,7 +23,8 @@ const requireAdmin = (req, res, next) => {
 };
 
 /**
- * Check if user has client role
+ * Check if user has a non-admin application role
+ * (legacy helper, now treated as \"non-admin\" guard)
  */
 const requireClient = (req, res, next) => {
     if (!req.user) {
@@ -32,7 +33,7 @@ const requireClient = (req, res, next) => {
         });
     }
 
-    if (req.user.role !== 'client') {
+    if (req.user.role === 'ADMIN') {
         return res.status(403).json({
             error: 'Access denied. Client access only.'
         });
@@ -78,7 +79,7 @@ const requireSelfOrAdmin = (paramName = 'userId') => {
         const targetUserId = req.params[paramName];
 
         // Allow if admin or accessing own resource
-        if (req.user.role === 'admin' || req.user.id === targetUserId) {
+        if (req.user.role === 'ADMIN' || req.user.id === targetUserId) {
             next();
         } else {
             return res.status(403).json({
@@ -88,9 +89,49 @@ const requireSelfOrAdmin = (paramName = 'userId') => {
     };
 };
 
+/**
+ * Require at least a MEMBER-level role (excludes VIEWER)
+ */
+const requireAtLeastMember = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            error: 'Authentication required'
+        });
+    }
+
+    if (!['MEMBER', 'PROJECT_MANAGER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({
+            error: 'Access denied. Member or higher required.'
+        });
+    }
+
+    next();
+};
+
+/**
+ * Require PROJECT_MANAGER or ADMIN
+ */
+const requireProjectManagerOrAdmin = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            error: 'Authentication required'
+        });
+    }
+
+    if (!['PROJECT_MANAGER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({
+            error: 'Access denied. Project Manager or Admin required.'
+        });
+    }
+
+    next();
+};
+
 module.exports = {
     requireAdmin,
     requireClient,
     requireRole,
     requireSelfOrAdmin,
+    requireAtLeastMember,
+    requireProjectManagerOrAdmin,
 };

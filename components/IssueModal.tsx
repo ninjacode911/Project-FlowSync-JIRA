@@ -12,7 +12,7 @@ interface IssueModalProps {
 }
 
 const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initialStatus }) => {
-  const { issues, users, createIssue, updateIssue, deleteIssue, addComment, currentUser, sprints } = useProject();
+  const { issues, users, createIssue, updateIssue, deleteIssue, addComment, currentUser, sprints, currentProjectId } = useProject();
 
   // TEMPORARY: Loading states - improve in Phase 7
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,7 +63,6 @@ const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initi
 
   if (!isOpen) return null;
 
-  // TEMPORARY: Async submit handler - improve error handling in Phase 8
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -77,12 +76,16 @@ const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initi
       if (issueId && formData.id) {
         await updateIssue({ ...formData, updatedAt: new Date().toISOString() } as Issue);
       } else {
+        // Ensure projectId is set when creating
+        if (!formData.projectId && currentProjectId) {
+          formData.projectId = currentProjectId;
+        }
         await createIssue(formData);
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving issue:', error);
-      alert('Failed to save issue. Please try again.');
+      alert(error.message || 'Failed to save issue. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

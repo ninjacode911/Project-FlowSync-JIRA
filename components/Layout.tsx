@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Trello,
@@ -9,9 +9,11 @@ import {
   Bell,
   Plus,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import IssueModal from './IssueModal';
 import NotificationsDropdown from './NotificationsDropdown';
 
@@ -32,10 +34,17 @@ const SidebarLink: React.FC<{ to: string; icon: React.ReactNode; label: string }
 
 const Layout: React.FC = () => {
   const { currentUser, projects, currentProjectId, searchQuery, setSearchQuery } = useProject();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const currentProject = projects.find(p => p.id === currentProjectId);
   const [isIssueModalOpen, setIssueModalOpen] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -147,13 +156,25 @@ const Layout: React.FC = () => {
           <div className="flex items-center space-x-4">
             <NotificationsDropdown />
             <div className="h-8 w-px bg-slate-200 mx-2"></div>
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-slate-700 mr-3 hidden sm:block">{currentUser.name}</span>
-              <img
-                src={currentUser.avatarUrl}
-                alt="User"
-                className="w-9 h-9 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100"
-              />
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <img
+                  src={user?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Default'}
+                  alt="User"
+                  className="w-9 h-9 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100"
+                />
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-slate-700">{user?.name}</p>
+                  <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut size={20} />
+              </button>
             </div>
           </div>
         </header>

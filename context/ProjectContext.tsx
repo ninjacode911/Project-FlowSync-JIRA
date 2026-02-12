@@ -11,6 +11,7 @@ import { userService } from '../src/services/userService';
 import { projectService } from '../src/services/projectService';
 import { sprintService } from '../src/services/sprintService';
 import { commentService } from '../src/services/commentService';
+import { useAuth } from './AuthContext';
 
 // TEMPORARY: Extended interface with loading/error states
 interface ProjectContextType extends AppState {
@@ -34,19 +35,27 @@ interface ProjectContextType extends AppState {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // TEMPORARY: Basic state structure - replace with proper state management in Phase 4
+  const { user: authUser } = useAuth();
+  
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [currentUser, setCurrentUser] = useState<User>({
-    id: 'u1',
-    name: 'Alex Rivera',
-    email: 'alex@flowsync.com',
-    avatarUrl: 'https://picsum.photos/100/100?random=1',
-  });
-  const [currentProjectId] = useState<string>('p1');
+  const [currentProjectId, setCurrentProjectId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Map auth user to currentUser format
+  const currentUser: User = authUser ? {
+    id: authUser.id,
+    name: authUser.name,
+    email: authUser.email,
+    avatarUrl: authUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.name}`,
+  } : {
+    id: '',
+    name: '',
+    email: '',
+    avatarUrl: '',
+  };
 
   // TEMPORARY: Loading and error states
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +67,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsLoading(true);
       setError(null);
 
-      // TEMPORARY: Parallel API calls - replace with proper data fetching in Phase 4
+      // Parallel API calls
       const [usersData, projectsData, sprintsData, issuesData] = await Promise.all([
         userService.fetchUsers(),
         projectService.fetchProjects(),
@@ -70,6 +79,11 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setProjects(projectsData);
       setSprints(sprintsData);
       setIssues(issuesData);
+      
+      // Set current project if not set and projects exist
+      if (!currentProjectId && projectsData.length > 0) {
+        setCurrentProjectId(projectsData[0].id);
+      }
     } catch (err) {
       // TEMPORARY: Basic error handling - replace with proper error handling in Phase 4
       console.error('Error loading data:', err);
@@ -84,22 +98,26 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     loadData();
   }, [loadData]);
 
-  // TEMPORARY: Create issue with API call
+  // Create issue with API call
   const createIssue = useCallback(async (newIssueData: Partial<Issue>) => {
     try {
-      // TEMPORARY: Replace with proper validation and error handling
+      if (!currentProjectId) {
+        throw new Error('No project selected');
+      }
+      
       const createdIssue = await issueService.createIssue({
         ...newIssueData,
+        projectId: currentProjectId,
         reporterId: currentUser.id,
       });
 
       setIssues((prev) => [...prev, createdIssue]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating issue:', err);
-      // TEMPORARY: Replace with proper error notification in Phase 7
-      alert('Failed to create issue');
+      alert(err.message || 'Failed to create issue');
+      throw err;
     }
-  }, [currentUser.id]);
+  }, [currentUser.id, currentProjectId]);
 
   // TEMPORARY: Update issue status with API call
   const updateIssueStatus = useCallback(async (issueId: string, status: Status) => {
@@ -168,83 +186,107 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [currentUser.id]);
 
-  // TEMPORARY: Create sprint with API call
+  // Create sprint with API call
   const createSprint = useCallback(async (sprintData: Partial<Sprint>) => {
     try {
-      const newSprint = await sprintService.createSprint(sprintData);
-      setSprints((prev) => [...prev, newSprint]);
-    } catch (err) {
+      if (!currentProjectId) {
+        throw new Error('No project selected');
+      }
+      
+      const newSprint = await sprintService.createSprint({
+        ...sprintData,
+        projectId: currentProjectId,
+      });
+      
+      // Map backend response to frontend format
+      const formattedSprint: Sprint = {
+        ...newSprint,
+        isActive: newSprint.isActive || false,
+        isCompleted: newSprint.isCompleted || false,
+      };
+      
+      setSprints((prev) => [...prev, formattedSprint]);
+    } catch (err: any) {
       console.error('Error creating sprint:', err);
-      alert('Failed to create sprint');
+      alert(err.message || 'Failed to create sprint');
       throw err;
     }
-  }, []);
+  }, [currentProjectId]);
 
-  // TEMPORARY: Start sprint - set isActive to true, ensure only one active
+  // Start sprint
   const startSprint = useCallback(async (sprintId: string) => {
     try {
-      // First, deactivate all other sprints
-      const updatedSprints = sprints.map(s => ({
-        ...s,
-        isActive: s.id === sprintId
-      }));
-
-      setSprints(updatedSprints);
-
-      // Update via API
-      await sprintService.updateSprint(sprintId, { isActive: true });
-
-      // Deactivate others via API
-      const otherActiveSprints = sprints.filter(s => s.isActive && s.id !== sprintId);
-      await Promise.all(
-        otherActiveSprints.map(s => sprintService.updateSprint(s.id, { isActive: false }))
+      // Use the API endpoint to start sprint
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/sprints/${sprintId}/start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+        }
       );
-    } catch (err) {
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to start sprint');
+      }
+
+      const updatedSprint = await response.json();
+      
+      // Update local state
+      setSprints((prev) =>
+        prev.map((s) =>
+          s.id === sprintId
+            ? { ...s, isActive: true, isCompleted: false }
+            : { ...s, isActive: false }
+        )
+      );
+    } catch (err: any) {
       console.error('Error starting sprint:', err);
-      alert('Failed to start sprint');
+      alert(err.message || 'Failed to start sprint');
       await loadData(); // Revert on error
     }
-  }, [sprints, loadData]);
+  }, [loadData]);
 
-  // TEMPORARY: Complete sprint - set isCompleted to true, move incomplete issues to backlog
+  // Complete sprint
   const completeSprint = useCallback(async (sprintId: string) => {
     try {
-      // Update sprint status
-      await sprintService.updateSprint(sprintId, {
-        isActive: false,
-        isCompleted: true
-      });
+      // Use the API endpoint to complete sprint
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/sprints/${sprintId}/complete`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+        }
+      );
 
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to complete sprint');
+      }
+
+      const updatedSprint = await response.json();
+      
+      // Update local state
       setSprints((prev) =>
         prev.map((s) =>
           s.id === sprintId ? { ...s, isActive: false, isCompleted: true } : s
         )
       );
 
-      // Move incomplete issues to backlog
-      const incompleteIssues = issues.filter(
-        i => i.sprintId === sprintId && i.status !== 'Done'
-      );
-
-      await Promise.all(
-        incompleteIssues.map(issue =>
-          issueService.updateIssue(issue.id, { ...issue, sprintId: undefined })
-        )
-      );
-
-      setIssues((prev) =>
-        prev.map((issue) =>
-          incompleteIssues.find(i => i.id === issue.id)
-            ? { ...issue, sprintId: undefined }
-            : issue
-        )
-      );
-    } catch (err) {
+      // Reload issues to reflect backlog changes
+      await loadData();
+    } catch (err: any) {
       console.error('Error completing sprint:', err);
-      alert('Failed to complete sprint');
+      alert(err.message || 'Failed to complete sprint');
       await loadData(); // Revert on error
     }
-  }, [issues, loadData]);
+  }, [loadData]);
 
   // TEMPORARY: Return context value with all required fields
   return (

@@ -66,6 +66,7 @@ const generateTokenPair = (user) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        is_active: user.is_active !== undefined ? user.is_active : 1,
     };
 
     return {

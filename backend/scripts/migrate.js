@@ -6,27 +6,33 @@ const runMigration = async () => {
     console.log('🚀 Starting SQLite database migration...\n');
 
     try {
-        // Read the migration file
-        const migrationPath = path.join(__dirname, '../migrations/001_initial_schema.sql');
-        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+        const migrationsDir = path.join(__dirname, '../migrations');
+        const files = fs.readdirSync(migrationsDir)
+            .filter((file) => file.endsWith('.sql'))
+            .sort();
 
-        console.log('📄 Reading migration file: 001_initial_schema.sql');
-        console.log('⚙️  Executing migration...\n');
+        console.log('📄 Found migration files:', files.join(', '));
 
-        // Execute the entire SQL file at once
-        // SQLite's exec() method can handle multiple statements
-        await new Promise((resolve, reject) => {
-            db.exec(migrationSQL, (err) => {
-                if (err) {
-                    console.error('❌ Migration error:', err.message);
-                    reject(err);
-                } else {
-                    resolve();
-                }
+        for (const file of files) {
+            const migrationPath = path.join(migrationsDir, file);
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+
+            console.log(`\n📄 Reading migration file: ${file}`);
+            console.log('⚙️  Executing migration...\n');
+
+            await new Promise((resolve, reject) => {
+                db.exec(migrationSQL, (err) => {
+                    if (err) {
+                        console.error('❌ Migration error in', file + ':', err.message);
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
             });
-        });
+        }
 
-        console.log('✅ Migration completed successfully!\n');
+        console.log('\n✅ All migrations completed successfully!\n');
         console.log('📊 Created tables:');
         console.log('   - users');
         console.log('   - projects');

@@ -10,11 +10,11 @@ const { query } = require('./config/database');
 
 // Import routes
 const authRoutes = require('./routes/auth');
-// const userRoutes = require('./routes/users');
-// const projectRoutes = require('./routes/projects');
-// const issueRoutes = require('./routes/issues');
-// const sprintRoutes = require('./routes/sprints');
-// const commentRoutes = require('./routes/comments');
+const userRoutes = require('./routes/users');
+const projectRoutes = require('./routes/projects');
+const issueRoutes = require('./routes/issues');
+const sprintRoutes = require('./routes/sprints');
+const commentRoutes = require('./routes/comments');
 // const reviewRoutes = require('./routes/reviews');
 // const notificationRoutes = require('./routes/notifications');
 
@@ -29,7 +29,27 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            process.env.FRONTEND_URL,
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'http://127.0.0.1:5173',
+            'http://127.0.0.1:3000'
+        ].filter(Boolean); // Remove undefined/null
+
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) === -1) {
+            // For development, we might want to be more lenient or just log it
+            console.log('CORS blocked origin:', origin);
+            // return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+            // For now, allow it but log it to debug
+            return callback(null, true);
+        }
+        return callback(null, true);
+    },
     credentials: true,
 }));
 
@@ -81,11 +101,11 @@ app.get('/health', async (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
-// app.use('/api/projects', projectRoutes);
-// app.use('/api/issues', issueRoutes);
-// app.use('/api/sprints', sprintRoutes);
-// app.use('/api/comments', commentRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/issues', issueRoutes);
+app.use('/api/sprints', sprintRoutes);
+app.use('/api/comments', commentRoutes);
 // app.use('/api/reviews', reviewRoutes);
 // app.use('/api/notifications', notificationRoutes);
 

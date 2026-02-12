@@ -8,7 +8,7 @@ const { generateTokenPair } = require('../utils/jwt');
  */
 const register = async (req, res) => {
     try {
-        const { name, email, password, role = 'client' } = req.body;
+        const { name, email, password, role } = req.body;
 
         // Validation
         if (!name || !email || !password) {
@@ -34,6 +34,8 @@ const register = async (req, res) => {
         const passwordHash = await bcrypt.hash(password, salt);
 
         // Create user
+        const userRole = role || 'MEMBER';
+
         const result = await run(
             `INSERT INTO users (email, password_hash, name, role, avatar_url) 
        VALUES (?, ?, ?, ?, ?)`,
@@ -41,14 +43,14 @@ const register = async (req, res) => {
                 email,
                 passwordHash,
                 name,
-                role,
+                userRole,
                 `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
             ]
         );
 
         // Get created user
         const user = await get(
-            'SELECT id, email, name, role, avatar_url, created_at FROM users WHERE id = ?',
+            'SELECT id, email, name, role, avatar_url, is_active, created_at FROM users WHERE id = ?',
             [result.lastID]
         );
 
@@ -187,7 +189,7 @@ const refreshToken = async (req, res) => {
 
         // Get user
         const user = await get(
-            'SELECT id, email, name, role FROM users WHERE id = ?',
+            'SELECT id, email, name, role, is_active FROM users WHERE id = ?',
             [decoded.id]
         );
 

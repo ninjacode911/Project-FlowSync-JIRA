@@ -46,8 +46,7 @@ CREATE TABLE IF NOT EXISTS sprints (
   goal TEXT,
   start_date TEXT,
   end_date TEXT,
-  is_active INTEGER DEFAULT 0,
-  is_completed INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'planned' CHECK(status IN ('planned', 'active', 'completed')),
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -242,7 +241,8 @@ END;
 -- ============================================
 
 -- Create default admin user (password: admin123)
--- Password hash for 'admin123' using bcrypt
+-- NOTE: Password hashes below are placeholders. Run `npm run update-passwords` after migration
+-- to generate proper bcrypt hashes, or use the update-passwords.js script manually.
 INSERT OR IGNORE INTO users (id, email, password_hash, name, role, avatar_url) VALUES
 ('admin-001', 'admin@flowsync.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Admin User', 'admin', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin');
 
