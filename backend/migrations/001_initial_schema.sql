@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
   avatar_url TEXT,
-  role TEXT NOT NULL DEFAULT 'client' CHECK(role IN ('admin', 'client')),
+  role TEXT NOT NULL DEFAULT 'MEMBER' CHECK(role IN ('ADMIN', 'PROJECT_MANAGER', 'MEMBER', 'VIEWER')),
   is_active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
@@ -244,12 +244,14 @@ END;
 -- NOTE: Password hashes below are placeholders. Run `npm run update-passwords` after migration
 -- to generate proper bcrypt hashes, or use the update-passwords.js script manually.
 INSERT OR IGNORE INTO users (id, email, password_hash, name, role, avatar_url) VALUES
-('admin-001', 'admin@flowsync.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Admin User', 'admin', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin');
+('admin-001', 'admin@flowsync.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Admin User', 'ADMIN', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin');
 
--- Create sample client users (password: client123)
+-- Create sample users with different roles
 INSERT OR IGNORE INTO users (id, email, password_hash, name, role, avatar_url) VALUES
-('client-001', 'john@client.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'John Doe', 'client', 'https://api.dicebear.com/7.x/avataaars/svg?seed=John'),
-('client-002', 'sarah@client.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Sarah Chen', 'client', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah');
+('client-001', 'john@client.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'John Doe', 'MEMBER', 'https://api.dicebear.com/7.x/avataaars/svg?seed=John'),
+('client-002', 'sarah@client.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Sarah Chen', 'MEMBER', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah'),
+('pm-001', 'pm@flowsync.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Emily Park', 'PROJECT_MANAGER', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily'),
+('viewer-001', 'viewer@flowsync.com', '$2a$10$rGHvFWvJXfE5cF5cF5cF5uN5n5n5n5n5n5n5n5n5n5n5n5n5n5n5n', 'Mike Ross', 'VIEWER', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike');
 
 -- Create default project
 INSERT OR IGNORE INTO projects (id, key, name, description, lead_id) VALUES

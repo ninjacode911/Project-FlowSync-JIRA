@@ -36,20 +36,21 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user: authUser } = useAuth();
-  
+
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Map auth user to currentUser format
   const currentUser: User = authUser ? {
     id: authUser.id,
     name: authUser.name,
     email: authUser.email,
     avatarUrl: authUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.name}`,
+    role: authUser.role,
   } : {
     id: '',
     name: '',
@@ -79,7 +80,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setProjects(projectsData);
       setSprints(sprintsData);
       setIssues(issuesData);
-      
+
       // Set current project if not set and projects exist
       if (!currentProjectId && projectsData.length > 0) {
         setCurrentProjectId(projectsData[0].id);
@@ -104,7 +105,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (!currentProjectId) {
         throw new Error('No project selected');
       }
-      
+
       const createdIssue = await issueService.createIssue({
         ...newIssueData,
         projectId: currentProjectId,
@@ -192,19 +193,19 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (!currentProjectId) {
         throw new Error('No project selected');
       }
-      
+
       const newSprint = await sprintService.createSprint({
         ...sprintData,
         projectId: currentProjectId,
       });
-      
+
       // Map backend response to frontend format
       const formattedSprint: Sprint = {
         ...newSprint,
         isActive: newSprint.isActive || false,
         isCompleted: newSprint.isCompleted || false,
       };
-      
+
       setSprints((prev) => [...prev, formattedSprint]);
     } catch (err: any) {
       console.error('Error creating sprint:', err);
@@ -234,7 +235,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const updatedSprint = await response.json();
-      
+
       // Update local state
       setSprints((prev) =>
         prev.map((s) =>
@@ -271,7 +272,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       const updatedSprint = await response.json();
-      
+
       // Update local state
       setSprints((prev) =>
         prev.map((s) =>

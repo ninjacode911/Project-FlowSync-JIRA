@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { db, close } = require('../src/config/database');
+const { db, close, get } = require('../src/config/database');
 
 const runMigration = async () => {
     console.log('🚀 Starting SQLite database migration...\n');
@@ -14,6 +14,19 @@ const runMigration = async () => {
         console.log('📄 Found migration files:', files.join(', '));
 
         for (const file of files) {
+            // Skip migration 002 if users table already has the correct schema
+            if (file.includes('002_update_user_roles')) {
+                try {
+                    const row = await get("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'");
+                    if (row && row.sql && row.sql.includes("'ADMIN'")) {
+                        console.log(`\n⏭️  Skipping ${file} (users table already has correct roles)`);
+                        continue;
+                    }
+                } catch (e) {
+                    // Table doesn't exist yet, run the migration
+                }
+            }
+
             const migrationPath = path.join(migrationsDir, file);
             const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
@@ -72,3 +85,4 @@ const runMigration = async () => {
 
 // Run the migration
 runMigration();
+

@@ -9,6 +9,7 @@ import ErrorMessage from '../components/ErrorMessage';
 
 const Backlog: React.FC = () => {
   const { issues, sprints, currentUser, users, searchQuery, isLoading, error, refreshData, createSprint, startSprint, completeSprint } = useProject();
+  const isViewer = currentUser?.role === 'VIEWER';
   const [editingIssueId, setEditingIssueId] = useState<string | null>(null);
   const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
 
@@ -117,7 +118,7 @@ const Backlog: React.FC = () => {
               </div>
             )}
 
-            {isBacklog && (
+            {isBacklog && !isViewer && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -130,7 +131,7 @@ const Backlog: React.FC = () => {
               </button>
             )}
 
-            {sprint && !sprint.isActive && !sprint.isCompleted && (
+            {sprint && !sprint.isActive && !sprint.isCompleted && !isViewer && (
               <button
                 onClick={async (e) => {
                   e.stopPropagation();
@@ -150,18 +151,20 @@ const Backlog: React.FC = () => {
                 <span className="px-2 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded uppercase tracking-wide">
                   Active
                 </span>
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (confirm(`Complete sprint "${sprint.name}"? Incomplete issues will be moved to backlog.`)) {
-                      await completeSprint(sprint.id);
-                    }
-                  }}
-                  className="flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded transition-colors"
-                >
-                  <CheckCircle size={14} className="mr-1" />
-                  Complete Sprint
-                </button>
+                {!isViewer && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (confirm(`Complete sprint "${sprint.name}"? Incomplete issues will be moved to backlog.`)) {
+                        await completeSprint(sprint.id);
+                      }
+                    }}
+                    className="flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded transition-colors"
+                  >
+                    <CheckCircle size={14} className="mr-1" />
+                    Complete Sprint
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -177,14 +180,16 @@ const Backlog: React.FC = () => {
               </div>
             )}
 
-            <div className="p-2 border-t border-slate-100 hover:bg-slate-50 cursor-pointer group">
-              <button
-                onClick={() => setEditingIssueId(null)} // Not quite right, need logic to open create modal prepopulated. 
-                className="flex items-center text-sm text-slate-500 group-hover:text-blue-600 transition-colors w-full px-2"
-              >
-                <span className="text-xl mr-2 font-light">+</span> Create Issue
-              </button>
-            </div>
+            {!isViewer && (
+              <div className="p-2 border-t border-slate-100 hover:bg-slate-50 cursor-pointer group">
+                <button
+                  onClick={() => setEditingIssueId(null)} // Not quite right, need logic to open create modal prepopulated. 
+                  className="flex items-center text-sm text-slate-500 group-hover:text-blue-600 transition-colors w-full px-2"
+                >
+                  <span className="text-xl mr-2 font-light">+</span> Create Issue
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

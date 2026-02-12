@@ -1,12 +1,14 @@
 export type Priority = 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest';
 export type IssueType = 'Story' | 'Task' | 'Bug' | 'Epic';
 export type Status = 'To Do' | 'In Progress' | 'In Review' | 'Done';
+export type UserRole = 'ADMIN' | 'PROJECT_MANAGER' | 'MEMBER' | 'VIEWER';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   avatarUrl: string;
+  role?: UserRole;
 }
 
 export interface Comment {

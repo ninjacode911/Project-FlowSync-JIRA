@@ -11,6 +11,7 @@ const COLUMNS: Status[] = ['To Do', 'In Progress', 'In Review', 'Done'];
 
 const Board: React.FC = () => {
   const { issues, updateIssueStatus, sprints, searchQuery, users, currentUser, isLoading, error, refreshData } = useProject();
+  const isViewer = currentUser?.role === 'VIEWER';
   const [draggedIssueId, setDraggedIssueId] = useState<string | null>(null);
   const [editingIssueId, setEditingIssueId] = useState<string | null>(null);
   const [filterUser, setFilterUser] = useState<string>('all');
@@ -143,12 +144,12 @@ const Board: React.FC = () => {
                     return (
                       <div
                         key={issue.id}
-                        draggable
-                        onDragStart={(e) => onDragStart(e, issue.id)}
+                        draggable={!isViewer}
+                        onDragStart={!isViewer ? (e) => onDragStart(e, issue.id) : undefined}
                         onClick={() => setEditingIssueId(issue.id)}
                         className={`
                           group relative bg-white p-4 rounded-lg shadow-sm border border-slate-200 
-                          cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-300 transition-all duration-200
+                          ${isViewer ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} hover:shadow-md hover:border-blue-300 transition-all duration-200
                           ${draggedIssueId === issue.id ? 'opacity-50' : 'opacity-100'}
                         `}
                       >

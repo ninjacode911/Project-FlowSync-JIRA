@@ -13,6 +13,7 @@ interface IssueModalProps {
 
 const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initialStatus }) => {
   const { issues, users, createIssue, updateIssue, deleteIssue, addComment, currentUser, sprints, currentProjectId } = useProject();
+  const isViewer = currentUser?.role === 'VIEWER';
 
   // TEMPORARY: Loading states - improve in Phase 7
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -174,7 +175,7 @@ const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initi
             </h2>
           </div>
           <div className="flex items-center space-x-2">
-            {issueId && (
+            {issueId && !isViewer && (
               <button
                 onClick={handleDelete}
                 disabled={isDeleting || isSubmitting}
@@ -429,17 +430,19 @@ const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initi
             disabled={isSubmitting || isDeleting}
             className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Cancel
+            {isViewer ? 'Close' : 'Cancel'}
           </button>
-          <button
-            onClick={handleSubmit}
-            type="button"
-            disabled={isSubmitting || isDeleting}
-            className="flex items-center px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save size={16} className={`mr-2 ${isSubmitting ? 'animate-pulse' : ''}`} />
-            {isSubmitting ? 'Saving...' : (issueId ? 'Save Changes' : 'Create Issue')}
-          </button>
+          {!isViewer && (
+            <button
+              onClick={handleSubmit}
+              type="button"
+              disabled={isSubmitting || isDeleting}
+              className="flex items-center px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save size={16} className={`mr-2 ${isSubmitting ? 'animate-pulse' : ''}`} />
+              {isSubmitting ? 'Saving...' : (issueId ? 'Save Changes' : 'Create Issue')}
+            </button>
+          )}
         </div>
       </div>
     </div>
