@@ -1,6 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProject } from '../context/ProjectContext';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { Clock, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 import { PriorityIcon } from '../components/ui/Icons';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -8,6 +9,7 @@ import ErrorMessage from '../components/ErrorMessage';
 
 const Dashboard: React.FC = () => {
   const { issues, currentUser, projects, currentProjectId, isLoading, error, refreshData } = useProject();
+  const navigate = useNavigate();
 
   // TEMPORARY: Show loading and error states
   if (isLoading) {
@@ -73,31 +75,41 @@ const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Status Distribution */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-80">
-              <h3 className="text-lg font-bold text-slate-800 mb-6">Status Overview</h3>
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
+              <h3 className="text-lg font-bold text-slate-800 mb-4">Status Overview</h3>
+              <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
                     data={statusData}
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={55}
+                    outerRadius={75}
                     paddingAngle={5}
                     dataKey="value"
+                    cx="50%"
+                    cy="50%"
                   >
                     {statusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip />
-                  <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-2">
+                {statusData.map((entry, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+                    <span className="text-xs text-slate-600 font-medium">{entry.name}</span>
+                    <span className="text-xs text-slate-400">({entry.value})</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Priority Bar Chart */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-80">
-              <h3 className="text-lg font-bold text-slate-800 mb-6">Issues by Priority</h3>
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
+              <h3 className="text-lg font-bold text-slate-800 mb-4">Issues by Priority</h3>
+              <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={priorityData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
@@ -140,7 +152,10 @@ const Dashboard: React.FC = () => {
               )}
             </div>
             <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-              <button className="text-sm text-blue-600 font-medium hover:underline w-full text-center">View all my issues</button>
+              <button
+                onClick={() => navigate('/board')}
+                className="text-sm text-blue-600 font-medium hover:underline w-full text-center"
+              >View all my issues</button>
             </div>
           </div>
         </div>

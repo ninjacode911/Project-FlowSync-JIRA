@@ -17,7 +17,7 @@ const sprintRoutes = require('./routes/sprints');
 const commentRoutes = require('./routes/comments');
 const adminRoutes = require('./routes/admin');
 // const reviewRoutes = require('./routes/reviews');
-// const notificationRoutes = require('./routes/notifications');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -109,7 +109,7 @@ app.use('/api/sprints', sprintRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/admin', adminRoutes);
 // app.use('/api/reviews', reviewRoutes);
-// app.use('/api/notifications', notificationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req, res) => {

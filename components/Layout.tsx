@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -40,6 +40,14 @@ const Layout: React.FC = () => {
   const [isIssueModalOpen, setIssueModalOpen] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  // Clear search when navigating away from pages that support it
+  useEffect(() => {
+    const searchPages = ['/board', '/backlog'];
+    if (!searchPages.includes(location.pathname)) {
+      setSearchQuery('');
+    }
+  }, [location.pathname, setSearchQuery]);
 
   const handleLogout = () => {
     logout();
@@ -91,11 +99,19 @@ const Layout: React.FC = () => {
           {/* Project Info */}
           <div className="px-6 py-6">
             <div className="flex items-center space-x-3 mb-6">
-              <img
-                src={currentProject?.avatarUrl}
-                alt="Project"
-                className="w-10 h-10 rounded-md object-cover shadow-sm border border-slate-200"
-              />
+              {currentProject?.avatarUrl ? (
+                <img
+                  src={currentProject.avatarUrl}
+                  alt="Project"
+                  className="w-10 h-10 rounded-md object-cover shadow-sm border border-slate-200"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                  <span className="text-white font-bold text-lg">
+                    {currentProject?.name?.charAt(0) || 'P'}
+                  </span>
+                </div>
+              )}
               <div className="overflow-hidden">
                 <h2 className="text-sm font-semibold text-slate-900 truncate">{currentProject?.name}</h2>
                 <p className="text-xs text-slate-500 truncate">Software Project</p>
@@ -152,18 +168,20 @@ const Layout: React.FC = () => {
             </button>
             <h1 className="text-xl font-semibold text-slate-800 hidden md:block">{getPageTitle()}</h1>
 
-            <div className="ml-8 max-w-md w-full hidden md:block relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search size={16} className="text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+            {(location.pathname === '/board' || location.pathname === '/backlog') && (
+              <div className="ml-8 max-w-md w-full hidden md:block relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search size={16} className="text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search issues..."
+                  className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-full leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <input
-                type="text"
-                placeholder="Search issues..."
-                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-full leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-4">

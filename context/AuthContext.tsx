@@ -78,6 +78,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
     };
 
+    const refreshUser = async () => {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            try {
+                const response = await axios.get(`${API_URL}/auth/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setUser(response.data.user);
+            } catch (error) {
+                // If token invalid, don't clear here, just let it fail silently or handle elsewhere
+                console.error('Failed to refresh user:', error);
+            }
+        }
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -87,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isLoading,
                 isAuthenticated: !!user,
                 isAdmin: !!user && user.role === 'ADMIN',
+                refreshUser,
             }}
         >
             {children}

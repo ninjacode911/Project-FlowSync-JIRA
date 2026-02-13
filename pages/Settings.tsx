@@ -1,50 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useProject } from '../context/ProjectContext';
-import { User, Bell, Lock, Palette, Globe, Save, Camera } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { userService } from '../src/services/userService';
+import { User, Bell, Lock, Palette, Save, Camera, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const Settings: React.FC = () => {
-    const { currentUser, isLoading, error, refreshData } = useProject();
+    // We use useAuth for current user data and refresh, as it's the source of truth for the session
+    const { user: currentUser, refreshUser } = useAuth();
+    const { refreshData } = useProject(); // To refresh global project data if needed
+
+    // Global Preferences State
+    const { preferences, notificationSettings, updatePreferences, updateNotificationSettings } = usePreferences();
 
     const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'notifications' | 'security'>('profile');
     const [isSaving, setIsSaving] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Profile settings
     const [profileData, setProfileData] = useState({
-        name: currentUser.name,
-        email: currentUser.email,
-        role: currentUser.role,
-        avatarUrl: currentUser.avatarUrl,
+        name: '',
+        email: '',
+        role: '',
+        avatarUrl: '',
     });
 
-    // Preferences
-    const [preferences, setPreferences] = useState({
-        theme: 'light',
-        language: 'en',
-        timezone: 'UTC',
-        dateFormat: 'MM/DD/YYYY',
-        emailNotifications: true,
-        pushNotifications: true,
+    // Load user data into form when currentUser changes
+    useEffect(() => {
+        if (currentUser) {
+            setProfileData({
+                name: currentUser.name,
+                email: currentUser.email,
+                role: currentUser.role,
+                avatarUrl: currentUser.avatarUrl || '',
+            });
+        }
+    }, [currentUser]);
+
+    // Security (Password Change)
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
     });
 
-    // Notification settings
-    const [notificationSettings, setNotificationSettings] = useState({
-        issueAssigned: true,
-        issueCommented: true,
-        issueMentioned: true,
-        sprintStarted: true,
-        sprintCompleted: true,
-        dailyDigest: false,
-        weeklyReport: true,
-    });
+    // Clear messages after 3 seconds
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => setMessage(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
 
     const handleSaveProfile = async () => {
+        if (!currentUser) return;
         setIsSaving(true);
+        setMessage(null);
         try {
-            // TEMPORARY: In real app, this would call API to update user profile
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            alert('Profile updated successfully!');
-        } catch (err) {
-            alert('Failed to update profile');
+            await userService.updateProfile({
+                name: profileData.name,
+                email: profileData.email,
+            });
+
+            // Refresh local user context to update UI immediately
+            if (refreshUser) await refreshUser();
+
+            setMessage({ type: 'success', text: 'Profile updated successfully!' });
+        } catch (err: any) {
+            console.error(err);
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to update profile' });
         } finally {
             setIsSaving(false);
         }
@@ -52,12 +76,16 @@ const Settings: React.FC = () => {
 
     const handleSavePreferences = async () => {
         setIsSaving(true);
+        setMessage(null);
         try {
-            // TEMPORARY: In real app, this would save to user preferences
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            alert('Preferences saved successfully!');
+            // Context handles persistence to localStorage automatically when updatePreferences is called
+            // But if we want to give feedback that it's "Saved", we can just show the message
+            // or we could force a save here if the context wasn't auto-saving (but it is).
+            // To simulate the "Action" of saving for the user:
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setMessage({ type: 'success', text: 'Preferences saved!' });
         } catch (err) {
-            alert('Failed to save preferences');
+            setMessage({ type: 'error', text: 'Failed to save preferences' });
         } finally {
             setIsSaving(false);
         }
@@ -65,12 +93,41 @@ const Settings: React.FC = () => {
 
     const handleSaveNotifications = async () => {
         setIsSaving(true);
+        setMessage(null);
         try {
-            // TEMPORARY: In real app, this would save notification settings
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            alert('Notification settings saved successfully!');
+            // Context handles persistence
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setMessage({ type: 'success', text: 'Notification settings saved!' });
         } catch (err) {
-            alert('Failed to save notification settings');
+            setMessage({ type: 'error', text: 'Failed to save notification settings' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handlePasswordChange = async () => {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setMessage({ type: 'error', text: 'New passwords do not match' });
+            return;
+        }
+        if (passwordData.newPassword.length < 6) {
+            setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
+            return;
+        }
+
+        setIsSaving(true);
+        setMessage(null);
+        try {
+            await userService.changePassword({
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
+            });
+
+            setMessage({ type: 'success', text: 'Password changed successfully!' });
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (err: any) {
+            console.error(err);
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to change password' });
         } finally {
             setIsSaving(false);
         }
@@ -82,6 +139,8 @@ const Settings: React.FC = () => {
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Lock },
     ];
+
+    if (!currentUser) return <div className="p-6">Loading...</div>;
 
     return (
         <div className="h-full flex flex-col bg-slate-50">
@@ -96,9 +155,16 @@ const Settings: React.FC = () => {
             {/* Content */}
             <div className="flex-1 overflow-auto">
                 <div className="max-w-6xl mx-auto p-6">
-                    <div className="flex gap-6">
+                    {message && (
+                        <div className={`mb-6 p-4 rounded-lg flex items-center ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                            {message.type === 'success' ? <CheckCircle2 size={20} className="mr-2" /> : <AlertCircle size={20} className="mr-2" />}
+                            {message.text}
+                        </div>
+                    )}
+
+                    <div className="flex flex-col md:flex-row gap-6">
                         {/* Sidebar */}
-                        <div className="w-64 flex-shrink-0">
+                        <div className="w-full md:w-64 flex-shrink-0">
                             <nav className="space-y-1">
                                 {tabs.map((tab) => {
                                     const Icon = tab.icon;
@@ -107,8 +173,8 @@ const Settings: React.FC = () => {
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id as any)}
                                             className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === tab.id
-                                                    ? 'bg-blue-50 text-blue-700'
-                                                    : 'text-gray-700 hover:bg-gray-100'
+                                                ? 'bg-blue-50 text-blue-700'
+                                                : 'text-gray-700 hover:bg-gray-100'
                                                 }`}
                                         >
                                             <Icon size={18} className="mr-3" />
@@ -133,15 +199,26 @@ const Settings: React.FC = () => {
                                                 Profile Picture
                                             </label>
                                             <div className="flex items-center space-x-4">
-                                                <img
-                                                    src={profileData.avatarUrl}
-                                                    alt="Profile"
-                                                    className="w-20 h-20 rounded-full border-2 border-gray-200"
-                                                />
-                                                <button className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                                                    <Camera size={16} className="mr-2" />
-                                                    Change Photo
-                                                </button>
+                                                {profileData.avatarUrl ? (
+                                                    <img
+                                                        src={profileData.avatarUrl}
+                                                        alt="Profile"
+                                                        className="w-20 h-20 rounded-full border-2 border-gray-200 object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border-2 border-white shadow-sm">
+                                                        <span className="text-white font-bold text-3xl">
+                                                            {profileData.name.charAt(0)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <button className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 mb-1" disabled>
+                                                        <Camera size={16} className="mr-2" />
+                                                        Change Photo
+                                                    </button>
+                                                    <p className="text-xs text-slate-400">Gravatar supported via email</p>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -180,7 +257,7 @@ const Settings: React.FC = () => {
                                                 type="text"
                                                 value={profileData.role}
                                                 disabled
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 capitalize"
                                             />
                                             <p className="mt-1 text-xs text-gray-500">Contact your administrator to change your role</p>
                                         </div>
@@ -209,7 +286,7 @@ const Settings: React.FC = () => {
                                             </label>
                                             <select
                                                 value={preferences.theme}
-                                                onChange={(e) => setPreferences({ ...preferences, theme: e.target.value })}
+                                                onChange={(e) => updatePreferences({ theme: e.target.value as any })}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="light">Light</option>
@@ -225,7 +302,7 @@ const Settings: React.FC = () => {
                                             </label>
                                             <select
                                                 value={preferences.language}
-                                                onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
+                                                onChange={(e) => updatePreferences({ language: e.target.value })}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="en">English</option>
@@ -242,7 +319,7 @@ const Settings: React.FC = () => {
                                             </label>
                                             <select
                                                 value={preferences.timezone}
-                                                onChange={(e) => setPreferences({ ...preferences, timezone: e.target.value })}
+                                                onChange={(e) => updatePreferences({ timezone: e.target.value })}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="UTC">UTC</option>
@@ -261,7 +338,7 @@ const Settings: React.FC = () => {
                                             </label>
                                             <select
                                                 value={preferences.dateFormat}
-                                                onChange={(e) => setPreferences({ ...preferences, dateFormat: e.target.value })}
+                                                onChange={(e) => updatePreferences({ dateFormat: e.target.value })}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -292,32 +369,32 @@ const Settings: React.FC = () => {
                                             <div className="border-b border-gray-200 pb-4">
                                                 <h3 className="text-sm font-medium text-gray-900 mb-3">Issue Notifications</h3>
 
-                                                <label className="flex items-center justify-between py-2">
+                                                <label className="flex items-center justify-between py-2 cursor-pointer hover:bg-slate-50 px-2 rounded -mx-2">
                                                     <span className="text-sm text-gray-700">When an issue is assigned to me</span>
                                                     <input
                                                         type="checkbox"
                                                         checked={notificationSettings.issueAssigned}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, issueAssigned: e.target.checked })}
+                                                        onChange={(e) => updateNotificationSettings({ issueAssigned: e.target.checked })}
                                                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                                     />
                                                 </label>
 
-                                                <label className="flex items-center justify-between py-2">
+                                                <label className="flex items-center justify-between py-2 cursor-pointer hover:bg-slate-50 px-2 rounded -mx-2">
                                                     <span className="text-sm text-gray-700">When someone comments on my issue</span>
                                                     <input
                                                         type="checkbox"
                                                         checked={notificationSettings.issueCommented}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, issueCommented: e.target.checked })}
+                                                        onChange={(e) => updateNotificationSettings({ issueCommented: e.target.checked })}
                                                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                                     />
                                                 </label>
 
-                                                <label className="flex items-center justify-between py-2">
+                                                <label className="flex items-center justify-between py-2 cursor-pointer hover:bg-slate-50 px-2 rounded -mx-2">
                                                     <span className="text-sm text-gray-700">When I'm mentioned in a comment</span>
                                                     <input
                                                         type="checkbox"
                                                         checked={notificationSettings.issueMentioned}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, issueMentioned: e.target.checked })}
+                                                        onChange={(e) => updateNotificationSettings({ issueMentioned: e.target.checked })}
                                                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                                     />
                                                 </label>
@@ -327,47 +404,22 @@ const Settings: React.FC = () => {
                                             <div className="border-b border-gray-200 pb-4">
                                                 <h3 className="text-sm font-medium text-gray-900 mb-3">Sprint Notifications</h3>
 
-                                                <label className="flex items-center justify-between py-2">
+                                                <label className="flex items-center justify-between py-2 cursor-pointer hover:bg-slate-50 px-2 rounded -mx-2">
                                                     <span className="text-sm text-gray-700">When a sprint starts</span>
                                                     <input
                                                         type="checkbox"
                                                         checked={notificationSettings.sprintStarted}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, sprintStarted: e.target.checked })}
+                                                        onChange={(e) => updateNotificationSettings({ sprintStarted: e.target.checked })}
                                                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                                     />
                                                 </label>
 
-                                                <label className="flex items-center justify-between py-2">
+                                                <label className="flex items-center justify-between py-2 cursor-pointer hover:bg-slate-50 px-2 rounded -mx-2">
                                                     <span className="text-sm text-gray-700">When a sprint is completed</span>
                                                     <input
                                                         type="checkbox"
                                                         checked={notificationSettings.sprintCompleted}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, sprintCompleted: e.target.checked })}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                                    />
-                                                </label>
-                                            </div>
-
-                                            {/* Digest Notifications */}
-                                            <div>
-                                                <h3 className="text-sm font-medium text-gray-900 mb-3">Digest Emails</h3>
-
-                                                <label className="flex items-center justify-between py-2">
-                                                    <span className="text-sm text-gray-700">Daily digest of activity</span>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={notificationSettings.dailyDigest}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, dailyDigest: e.target.checked })}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                                    />
-                                                </label>
-
-                                                <label className="flex items-center justify-between py-2">
-                                                    <span className="text-sm text-gray-700">Weekly progress report</span>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={notificationSettings.weeklyReport}
-                                                        onChange={(e) => setNotificationSettings({ ...notificationSettings, weeklyReport: e.target.checked })}
+                                                        onChange={(e) => updateNotificationSettings({ sprintCompleted: e.target.checked })}
                                                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                                     />
                                                 </label>
@@ -402,6 +454,8 @@ const Settings: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="password"
+                                                        value={passwordData.currentPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                                                         placeholder="Enter current password"
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                     />
@@ -413,7 +467,9 @@ const Settings: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="password"
-                                                        placeholder="Enter new password"
+                                                        value={passwordData.newPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                                        placeholder="Enter new password (min. 6 chars)"
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
@@ -424,45 +480,46 @@ const Settings: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="password"
+                                                        value={passwordData.confirmPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                                         placeholder="Confirm new password"
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
 
                                                 <button
-                                                    className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                                    onClick={handlePasswordChange}
+                                                    disabled={isSaving || !passwordData.currentPassword || !passwordData.newPassword}
+                                                    className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    Update Password
+                                                    {isSaving ? 'Updating...' : 'Update Password'}
                                                 </button>
                                             </div>
                                         </div>
 
-                                        {/* Two-Factor Authentication */}
-                                        <div className="border-t border-gray-200 pt-6">
-                                            <h3 className="text-sm font-medium text-gray-900 mb-2">Two-Factor Authentication</h3>
+                                        {/* Two-Factor Authentication (Placeholder) */}
+                                        <div className="border-t border-gray-200 pt-6 opacity-60">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h3 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h3>
+                                                <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Coming Soon</span>
+                                            </div>
                                             <p className="text-sm text-gray-600 mb-4">
                                                 Add an extra layer of security to your account
                                             </p>
-                                            <button className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                            <button className="px-6 py-2 text-sm font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-md cursor-not-allowed" disabled>
                                                 Enable 2FA
                                             </button>
                                         </div>
 
-                                        {/* Active Sessions */}
-                                        <div className="border-t border-gray-200 pt-6 mt-6">
-                                            <h3 className="text-sm font-medium text-gray-900 mb-2">Active Sessions</h3>
+                                        {/* Active Sessions (Placeholder) */}
+                                        <div className="border-t border-gray-200 pt-6 mt-6 opacity-60">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h3 className="text-sm font-medium text-gray-900">Active Sessions</h3>
+                                                <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Coming Soon</span>
+                                            </div>
                                             <p className="text-sm text-gray-600 mb-4">
                                                 Manage your active sessions across devices
                                             </p>
-                                            <div className="bg-gray-50 rounded-md p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900">Current Session</p>
-                                                        <p className="text-xs text-gray-500">Windows • Chrome • Last active: Now</p>
-                                                    </div>
-                                                    <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded">Active</span>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
                                 )}

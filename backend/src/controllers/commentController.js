@@ -1,4 +1,5 @@
 const { query, run, get } = require('../config/database');
+const { createNotification } = require('./notificationController');
 
 /**
  * Get all comments for an issue
@@ -74,6 +75,38 @@ const createComment = async (req, res) => {
         );
 
         res.status(201).json(comment);
+
+        // Notify issue assignee about the new comment (non-blocking)
+        const issueForNotification = await get(
+            'SELECT key, title, assignee_id, reporter_id FROM issues WHERE id = ?',
+            [issueId]
+        );
+        if (issueForNotification) {
+            const commenterName = comment.name || req.user?.name || 'Someone';
+            const issueLabel = `${issueForNotification.key}: ${issueForNotification.title}`;
+
+            // Notify assignee if commenter is not the assignee
+            if (issueForNotification.assignee_id && issueForNotification.assignee_id !== userId) {
+                createNotification(
+                    issueForNotification.assignee_id,
+                    'comment_added',
+                    'New comment on your issue',
+                    `${commenterName} commented on ${issueLabel}`,
+                    issueId
+                );
+            }
+
+            // Notify reporter if commenter is not the reporter and reporter is not the assignee
+            if (issueForNotification.reporter_id && issueForNotification.reporter_id !== userId && issueForNotification.reporter_id !== issueForNotification.assignee_id) {
+                createNotification(
+                    issueForNotification.reporter_id,
+                    'comment_added',
+                    'New comment on your reported issue',
+                    `${commenterName} commented on ${issueLabel}`,
+                    issueId
+                );
+            }
+        }
     } catch (error) {
         console.error('Error creating comment:', error);
         res.status(500).json({ error: 'Error creating comment: ' + error.message });

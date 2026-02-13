@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Link as LinkIcon, Paperclip, Send, MessageSquare } from 'lucide-react';
+import { X, Save, Trash2, Link as LinkIcon, Paperclip, Send, MessageSquare, Play, CheckCircle, RotateCcw } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { Issue, IssueType, Priority, Status, Comment } from '../types';
 import { PriorityIcon, TypeIcon } from './ui/Icons';
@@ -12,7 +12,7 @@ interface IssueModalProps {
 }
 
 const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initialStatus }) => {
-  const { issues, users, createIssue, updateIssue, deleteIssue, addComment, currentUser, sprints, currentProjectId } = useProject();
+  const { issues, users, createIssue, updateIssue, updateIssueStatus, deleteIssue, addComment, currentUser, sprints, currentProjectId } = useProject();
   const isViewer = currentUser?.role === 'VIEWER';
 
   // TEMPORARY: Loading states - improve in Phase 7
@@ -87,6 +87,21 @@ const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initi
     } catch (error: any) {
       console.error('Error saving issue:', error);
       alert(error.message || 'Failed to save issue. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: Status) => {
+    if (!issueId) return;
+    setIsSubmitting(true);
+    try {
+      await updateIssueStatus(issueId, newStatus);
+      // Update local state to reflect change immediately in the modal
+      setFormData(prev => ({ ...prev, status: newStatus }));
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Failed to update status');
     } finally {
       setIsSubmitting(false);
     }
@@ -423,26 +438,97 @@ const IssueModal: React.FC<IssueModalProps> = ({ isOpen, onClose, issueId, initi
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 bg-white flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting || isDeleting}
-            className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isViewer ? 'Close' : 'Cancel'}
-          </button>
-          {!isViewer && (
+        <div className="p-4 border-t border-gray-100 bg-white flex justify-between items-center">
+          {/* Workflow Actions */}
+          <div className="flex items-center space-x-2">
+            {issueId && !isViewer && (
+              <>
+                {formData.status === 'To Do' && (
+                  <button
+                    onClick={() => handleStatusChange('In Progress')}
+                    disabled={isSubmitting}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 border border-blue-200"
+                    title="Start working on this issue"
+                  >
+                    <Play size={16} className="mr-2" />
+                    Start Work
+                  </button>
+                )}
+
+                {formData.status === 'In Progress' && (
+                  <button
+                    onClick={() => handleStatusChange('In Review')}
+                    disabled={isSubmitting}
+                    className="flex items-center px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-md hover:bg-purple-100 border border-purple-200"
+                    title="Submit for review"
+                  >
+                    <Send size={16} className="mr-2" />
+                    Submit for Review
+                  </button>
+                )}
+
+                {formData.status === 'In Review' && (
+                  // Only Admins, PMs, or the Reporter can review
+                  (currentUser.role === 'ADMIN' || currentUser.role === 'PROJECT_MANAGER' || currentUser.id === formData.reporterId) && (
+                    <>
+                      <button
+                        onClick={() => handleStatusChange('In Progress')}
+                        disabled={isSubmitting}
+                        className="flex items-center px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 rounded-md hover:bg-orange-100 border border-orange-200"
+                        title="Request changes and move back to In Progress"
+                      >
+                        <RotateCcw size={16} className="mr-2" />
+                        Request Changes
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange('Done')}
+                        disabled={isSubmitting}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 border border-green-200"
+                        title="Approve and mark as Done"
+                      >
+                        <CheckCircle size={16} className="mr-2" />
+                        Approve
+                      </button>
+                    </>
+                  )
+                )}
+
+                {formData.status === 'Done' && (
+                  <button
+                    onClick={() => handleStatusChange('To Do')}
+                    disabled={isSubmitting}
+                    className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-md hover:bg-gray-100 border border-gray-200"
+                    title="Reopen issue"
+                  >
+                    <RotateCcw size={16} className="mr-2" />
+                    Reopen
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center">
             <button
-              onClick={handleSubmit}
               type="button"
+              onClick={onClose}
               disabled={isSubmitting || isDeleting}
-              className="flex items-center px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save size={16} className={`mr-2 ${isSubmitting ? 'animate-pulse' : ''}`} />
-              {isSubmitting ? 'Saving...' : (issueId ? 'Save Changes' : 'Create Issue')}
+              {isViewer ? 'Close' : 'Cancel'}
             </button>
-          )}
+            {!isViewer && (
+              <button
+                onClick={handleSubmit}
+                type="button"
+                disabled={isSubmitting || isDeleting}
+                className="flex items-center px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save size={16} className={`mr-2 ${isSubmitting ? 'animate-pulse' : ''}`} />
+                {isSubmitting ? 'Saving...' : (issueId ? 'Save Changes' : 'Create Issue')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

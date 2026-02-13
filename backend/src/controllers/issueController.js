@@ -1,4 +1,5 @@
 const { query, run, get } = require('../config/database');
+const { createNotification } = require('./notificationController');
 
 /**
  * Helper function to normalize status values
@@ -245,6 +246,18 @@ const createIssue = async (req, res) => {
             ]
         );
 
+        // Notify assignee if assigned at creation
+        if (assigneeId && assigneeId !== reporterId) {
+            const reporter = await get('SELECT name FROM users WHERE id = ?', [reporterId]);
+            createNotification(
+                assigneeId,
+                'task_assigned',
+                'New issue assigned to you',
+                `${reporter?.name || 'Someone'} assigned you ${issueKey}: ${title}`,
+                id
+            );
+        }
+
         // Handle linked issues
         if (linkedIssueIds && Array.isArray(linkedIssueIds) && linkedIssueIds.length > 0) {
             for (const linkedId of linkedIssueIds) {
@@ -301,8 +314,11 @@ const updateIssue = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
-        // Check if issue exists
-        const existingIssue = await get('SELECT id FROM issues WHERE id = ?', [id]);
+        // Check if issue exists (fetch full details for notification context)
+        const existingIssue = await get(
+            'SELECT id, key, title, assignee_id, reporter_id, status FROM issues WHERE id = ?',
+            [id]
+        );
         if (!existingIssue) {
             return res.status(404).json({ error: 'Issue not found' });
         }
@@ -326,7 +342,7 @@ const updateIssue = async (req, res) => {
         for (const [key, value] of Object.entries(updates)) {
             if (key in fieldMap) {
                 let normalizedValue = value;
-                
+
                 // Normalize status, priority, and type
                 if (key === 'status') {
                     normalizedValue = normalizeStatus(value);
@@ -335,7 +351,7 @@ const updateIssue = async (req, res) => {
                 } else if (key === 'type') {
                     normalizedValue = normalizeType(value);
                 }
-                
+
                 fields.push(`${fieldMap[key]} = ?`);
                 values.push(normalizedValue);
             }
@@ -345,7 +361,7 @@ const updateIssue = async (req, res) => {
         if (updates.linkedIssueIds !== undefined) {
             // Delete existing links
             await run('DELETE FROM issue_links WHERE issue_id = ?', [id]);
-            
+
             // Add new links
             if (Array.isArray(updates.linkedIssueIds) && updates.linkedIssueIds.length > 0) {
                 for (const linkedId of updates.linkedIssueIds) {
@@ -370,6 +386,68 @@ const updateIssue = async (req, res) => {
                 `UPDATE issues SET ${fields.join(', ')} WHERE id = ?`,
                 values
             );
+        }
+
+        // --- Notification triggers ---
+        const actorName = req.user?.name || req.user?.email || 'Someone';
+        const issueLabel = `${existingIssue.key}: ${existingIssue.title}`;
+
+        // Notify new assignee when assignment changes
+        if (updates.assigneeId && updates.assigneeId !== existingIssue.assignee_id && updates.assigneeId !== req.user.id) {
+            createNotification(
+                updates.assigneeId,
+                'task_assigned',
+                'Issue assigned to you',
+                `${actorName} assigned you ${issueLabel}`,
+                id
+            );
+        }
+
+        // Notify on status change
+        if (updates.status) {
+            const newStatus = normalizeStatus(updates.status);
+            const oldStatus = existingIssue.status;
+
+            if (newStatus !== oldStatus) {
+                // When moved to "In Review" — notify admins and PMs
+                if (newStatus === 'In Review') {
+                    const adminsAndPMs = await query(
+                        "SELECT id FROM users WHERE role IN ('ADMIN', 'PROJECT_MANAGER') AND is_active = 1 AND id != ?",
+                        [req.user.id]
+                    );
+                    for (const user of (adminsAndPMs || [])) {
+                        createNotification(
+                            user.id,
+                            'task_submitted',
+                            'Issue submitted for review',
+                            `${actorName} submitted ${issueLabel} for review`,
+                            id
+                        );
+                    }
+                }
+
+                // When moved to "Done" — notify assignee
+                if (newStatus === 'Done' && existingIssue.assignee_id && existingIssue.assignee_id !== req.user.id) {
+                    createNotification(
+                        existingIssue.assignee_id,
+                        'task_approved',
+                        'Issue approved',
+                        `${actorName} marked ${issueLabel} as Done`,
+                        id
+                    );
+                }
+
+                // When moved back from In Review to another status — notify assignee
+                if (oldStatus === 'In Review' && newStatus !== 'Done' && existingIssue.assignee_id && existingIssue.assignee_id !== req.user.id) {
+                    createNotification(
+                        existingIssue.assignee_id,
+                        'task_rejected',
+                        'Review changes requested',
+                        `${actorName} moved ${issueLabel} back to ${newStatus}`,
+                        id
+                    );
+                }
+            }
         }
 
         // Fetch updated issue with all details (reuse getIssueById logic)
@@ -437,20 +515,69 @@ const updateIssueStatus = async (req, res) => {
             return res.status(400).json({ error: 'Status is required' });
         }
 
-        // Check if issue exists
-        const existingIssue = await get('SELECT id FROM issues WHERE id = ?', [id]);
+        // Fetch full issue details before update (for notification context)
+        const existingIssue = await get(
+            'SELECT id, key, title, status, assignee_id, reporter_id FROM issues WHERE id = ?',
+            [id]
+        );
         if (!existingIssue) {
             return res.status(404).json({ error: 'Issue not found' });
         }
 
         // Normalize status
         const normalizedStatus = normalizeStatus(status);
+        const oldStatus = existingIssue.status;
 
         // Update status
         await run(
             'UPDATE issues SET status = ?, updated_at = datetime("now") WHERE id = ?',
             [normalizedStatus, id]
         );
+
+        // --- Notification triggers for drag-and-drop ---
+        if (normalizedStatus !== oldStatus) {
+            const actorName = req.user?.name || req.user?.email || 'Someone';
+            const issueLabel = `${existingIssue.key}: ${existingIssue.title}`;
+
+            // When moved to "In Review" — notify admins and PMs
+            if (normalizedStatus === 'In Review') {
+                const adminsAndPMs = await query(
+                    "SELECT id FROM users WHERE role IN ('ADMIN', 'PROJECT_MANAGER') AND is_active = 1 AND id != ?",
+                    [req.user.id]
+                );
+                for (const user of (adminsAndPMs || [])) {
+                    createNotification(
+                        user.id,
+                        'task_submitted',
+                        'Issue submitted for review',
+                        `${actorName} submitted ${issueLabel} for review`,
+                        id
+                    );
+                }
+            }
+
+            // When moved to "Done" — notify assignee
+            if (normalizedStatus === 'Done' && existingIssue.assignee_id && existingIssue.assignee_id !== req.user.id) {
+                createNotification(
+                    existingIssue.assignee_id,
+                    'task_approved',
+                    'Issue approved',
+                    `${actorName} marked ${issueLabel} as Done`,
+                    id
+                );
+            }
+
+            // When moved back from In Review — notify assignee of rejection
+            if (oldStatus === 'In Review' && normalizedStatus !== 'Done' && existingIssue.assignee_id && existingIssue.assignee_id !== req.user.id) {
+                createNotification(
+                    existingIssue.assignee_id,
+                    'task_rejected',
+                    'Review changes requested',
+                    `${actorName} moved ${issueLabel} back to ${normalizedStatus}`,
+                    id
+                );
+            }
+        }
 
         // Fetch updated issue with all details
         const updatedIssue = await get(
@@ -520,10 +647,10 @@ const deleteIssue = async (req, res) => {
 
         // Delete linked issues first (cascade should handle this, but being explicit)
         await run('DELETE FROM issue_links WHERE issue_id = ? OR linked_issue_id = ?', [id, id]);
-        
+
         // Delete comments
         await run('DELETE FROM comments WHERE issue_id = ?', [id]);
-        
+
         // Delete issue
         await run('DELETE FROM issues WHERE id = ?', [id]);
 

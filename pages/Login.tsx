@@ -27,15 +27,7 @@ const Login: React.FC = () => {
         }
     };
 
-    const fillAdminCredentials = () => {
-        setEmail('admin@flowsync.com');
-        setPassword('admin123');
-    };
 
-    const fillClientCredentials = () => {
-        setEmail('john@client.com');
-        setPassword('client123');
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
@@ -121,29 +113,7 @@ const Login: React.FC = () => {
                         </button>
                     </form>
 
-                    {/* Quick Login Buttons */}
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 mb-3 text-center">Quick login (for testing):</p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={fillAdminCredentials}
-                                className="px-4 py-2 border-2 border-indigo-200 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-all"
-                            >
-                                Admin
-                            </button>
-                            <button
-                                type="button"
-                                onClick={fillClientCredentials}
-                                className="px-4 py-2 border-2 border-purple-200 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-50 transition-all"
-                            >
-                                Client
-                            </button>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-3 text-center">
-                            Click to autofill credentials
-                        </p>
-                    </div>
+
                 </div>
 
                 {/* Footer */}
